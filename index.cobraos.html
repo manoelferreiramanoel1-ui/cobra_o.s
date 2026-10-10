@@ -1,0 +1,86 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#1b2a5c"><link rel="apple-touch-icon" href="icon-192.png"><title>Cobra O.S – Expresso Nepomuceno</title>
+<style>
+:root{--navy:#1b2a5c;--navy2:#142048;--azul:#0098d8;--bg:#eef2f7;--tx:#1d2433;--bd:#d5dce8;--ok:#1a9d5c;--am:#e0a100;--vm:#d23c3c}
+*{box-sizing:border-box}body{margin:0;font:15px/1.4 system-ui,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--tx);display:flex;min-height:100vh}
+nav{width:230px;background:var(--navy);color:#fff;flex:none;display:flex;flex-direction:column}
+.logo{background:#fff;padding:10px;text-align:center;border-bottom:4px solid var(--azul)}.logo img{width:84px;height:84px;display:block;margin:auto}.logo b{display:block;color:var(--navy);font-size:13px;letter-spacing:.5px}
+nav a{padding:14px 18px;color:#cfd8f0;text-decoration:none;border-left:4px solid transparent;cursor:pointer;font-weight:500}nav a:hover{background:var(--navy2)}nav a.on{background:var(--navy2);color:#fff;border-left-color:var(--azul)}
+main{flex:1;padding:22px;min-width:0}h2{margin:0 0 16px;color:var(--navy)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
+.card{background:#fff;border-radius:8px;padding:14px;border-top:4px solid var(--azul);box-shadow:0 1px 3px #0001}.card small{color:#5b6679}.card b{display:block;font-size:28px;color:var(--navy)}
+.box{background:#fff;border-radius:8px;padding:14px;box-shadow:0 1px 3px #0001;margin-bottom:16px;overflow-x:auto}
+table{width:100%;border-collapse:collapse}th{background:var(--navy);color:#fff;text-align:left;padding:9px;font-size:13px;white-space:nowrap}td{padding:9px;border-bottom:1px solid var(--bd);vertical-align:top}tr:hover td{background:#f5f8fc}
+.tag{padding:2px 9px;border-radius:12px;font-size:12px;font-weight:600;white-space:nowrap}.PENDENTE{background:#fff1cc;color:#8a6500}.REGULARIZADA{background:#d6f3e4;color:#126b3e}.EMCOB{background:#d8ecfa;color:#0a6aa0}.CANCELADA{background:#e6e8ee;color:#555}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}.g{background:var(--ok)}.y{background:var(--am)}.r{background:var(--vm)}
+input,select,textarea{padding:10px;border:1px solid var(--bd);border-radius:6px;font:inherit;width:100%;background:#fff}label{display:block;font-size:13px;color:#4a566b;font-weight:600}
+.b,.b2{padding:12px 20px;border:0;border-radius:6px;font:inherit;font-weight:600;cursor:pointer;background:var(--azul);color:#fff}.b2{background:#e3e8f1;color:var(--navy)}.b:hover{background:#007fb5}.big{padding:16px 28px;font-size:17px}.sm{padding:6px 10px;font-size:13px;margin:1px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px}.row{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.item{display:grid;grid-template-columns:1fr 2fr 90px;gap:8px;margin-bottom:8px}
+dialog{border:0;border-radius:10px;padding:20px;width:min(520px,94vw);max-height:88vh;overflow:auto}dialog::backdrop{background:#0008}dialog label{margin-top:10px}
+#toast{position:fixed;right:18px;bottom:18px;padding:14px 20px;border-radius:8px;color:#fff;display:none;font-weight:600;z-index:9}
+@media(max-width:800px){body{display:block}nav{width:100%;flex-direction:row;overflow-x:auto}.logo{display:none}nav a{white-space:nowrap;border-left:0;border-bottom:4px solid transparent}nav a.on{border-bottom-color:var(--azul)}main{padding:12px}.item{grid-template-columns:1fr 1fr}}
+</style></head><body>
+<nav><div class="logo"><img src="logo.jpg" alt="Expresso Nepomuceno"><b>COBRA O.S</b></div>
+<a data-v="dash">Dashboard</a><a data-v="nova">Nova Retirada</a><a data-v="pend">Pendências</a><a data-v="cob">Cobranças Pendentes</a><a data-v="mec">Mecânicos</a><a data-v="rel">Relatórios</a><a data-v="cfg">Configurações</a></nav>
+<main id="m"></main><div id="toast"></div>
+<script src="dados.js"></script>
+<script>
+const $=s=>document.querySelector(s),m=$('#m');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const api=apiLocal;
+function toast(t,err){const e=$('#toast');e.textContent=t;e.style.background=err?'#d23c3c':'#1a9d5c';e.style.display='block';setTimeout(()=>e.style.display='none',3500)}
+const user=()=>localStorage.getItem('usr')||'',hoje=()=>new Date().toISOString().slice(0,10);
+const fh=h=>h==null?'—':h<1?'< 1 h':h<24?Math.floor(h)+' h':Math.floor(h/24)+' d '+Math.floor(h%24)+' h';
+const cor=h=>h>48?'r':h>24?'y':'g',dt=s=>s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4)+' '+s.slice(11,16);
+const tg=s=>`<span class="tag ${s=='EM COBRANÇA'?'EMCOB':s}">${s}</span>`;
+const go=async f=>{try{await f()}catch(e){toast(e.message,1)}};
+function dlg(t,body,fields){return new Promise(res=>{const d=document.createElement('dialog');
+d.innerHTML=`<form method=dialog><h3>${t}</h3>${body||''}${(fields||[]).map(f=>`<label>${f[1]}<input name=${f[0]} type=${f[2]||'text'} value="${esc(f[3]||'')}"></label>`).join('')}<div class=row><button class=b2 value=x>${fields?'Cancelar':'Fechar'}</button>${fields?'<button class=b value=ok>Confirmar</button>':''}</div></form>`;
+document.body.append(d);d.showModal();d.onclose=()=>{const v=Object.fromEntries(new FormData(d.querySelector('form')));const ok=d.returnValue=='ok';d.remove();res(ok?v:null)}})}
+function tabela(rows,acoes){return `<table><tr><th>Data e hora</th><th>Mecânico</th><th>Código da peça</th><th>Descrição</th><th>Qtd</th><th>Tempo pendente</th><th>Status</th><th>Ações</th></tr>`+
+(rows.map(r=>`<tr><td>${dt(r.criado_em)}</td><td>${esc(r.mecanico)}</td><td>${r.itens.map(i=>esc(i.codigo)).join('<br>')}</td><td>${r.itens.map(i=>esc(i.descricao)).join('<br>')}</td><td>${r.itens.map(i=>i.qtd).join('<br>')}</td>
+<td>${r.horas==null?'—':`<span class="dot ${cor(r.horas)}"></span>${fh(r.horas)}`}</td><td>${tg(r.status)}${r.os?'<br><small>O.S. '+esc(r.os)+'</small>':''}</td>
+<td>${r.horas!=null&&acoes?`<button class="b sm" onclick="reg(${r.id})">Informar O.S.</button><button class="b2 sm" onclick="canc(${r.id})">Cancelar</button>`:''}<button class="b2 sm" onclick="hst(${r.id})">Histórico</button></td></tr>`).join('')||'<tr><td colspan=8>Nenhum registro.</td></tr>')+'</table>'}
+const reg=id=>go(async()=>{const v=await dlg('Informar número da O.S.','',[['os','Número da O.S.'],['data','Data da regularização','date',hoje()],['por','Responsável pela atualização','text',user()]]);if(!v)return;await api(`/api/retiradas/${id}/regularizar`,v);toast('Retirada regularizada');go_()});
+const canc=id=>go(async()=>{const v=await dlg('Cancelar retirada','',[['motivo','Justificativa (obrigatória)'],['por','Responsável','text',user()]]);if(!v)return;await api(`/api/retiradas/${id}/cancelar`,v);toast('Retirada cancelada');go_()});
+const hst=id=>go(async()=>{const h=await api('/api/historico?retirada='+id);await dlg('Histórico da retirada',`<table>${h.map(x=>`<tr><td>${dt(x.em)}</td><td><b>${x.acao}</b><br>${esc(x.detalhe)}</td><td>${esc(x.usuario)}</td></tr>`).join('')}</table>`)});
+const cobrar=id=>go(async()=>{const v=await dlg('Registrar cobrança','',[['obs','Observação'],['por','Responsável pela cobrança','text',user()]]);if(!v)return;v.mecanico_id=id;await api('/api/cobrancas',v);toast('Cobrança registrada');go_()});
+const detalhe=id=>go(async()=>{const x=await api('/api/mecanicos/'+id);await dlg(esc(x.mecanico.nome)+(x.mecanico.matricula?' – mat. '+esc(x.mecanico.matricula):''),`<div class=box>${tabela(x.retiradas,false)}</div><h4>Cobranças</h4>${x.cobrancas.map(c=>`<p>${dt(c.em)} – ${esc(c.por)}: ${esc(c.obs)}</p>`).join('')||'<p>Nenhuma.</p>'}`)});
+const avisoBk=()=>S.ret.length&&(!S.bk||Date.now()-tms(S.bk)>6048e5)?`<div class=box style="border-left:5px solid var(--am)"><b>Faça um backup.</b> Seus dados ficam só neste aparelho. <a href="#cfg">Ir para Configurações</a></div>`:'';
+const V={
+async dash(){const d=await api('/api/dashboard');const c=[['Retiradas pendentes',d.pendentes],['Peças pendentes',d.pecas],['Pendências de hoje',d.hoje],['Mais de 24 horas',d.h24],['Mais de 48 horas',d.h48],['Regularizadas no mês',d.reg_mes]];
+m.innerHTML=`<h2>Dashboard</h2>${avisoBk()}<div class=cards>${c.map(x=>`<div class=card><small>${x[0]}</small><b>${x[1]}</b></div>`).join('')}</div><div class=box><h3>Pendências mais antigas</h3>${tabela(d.antigas,true)}</div>`},
+async nova(){const mc=await api('/api/mecanicos');let tk=Date.now()+'-'+Math.random().toString(36).slice(2);
+const it=()=>`<div class=item><input class=cd placeholder="Código"><input class=ds placeholder="Descrição"><input class=qt type=number min=1 value=1></div>`;
+m.innerHTML=`<h2>Nova Retirada</h2><div class=box><div class=grid><label>Mecânico<select id=mc><option value="">Selecione…</option>${mc.map(x=>`<option value=${x.id}>${esc(x.nome)}${x.matricula?' ('+esc(x.matricula)+')':''}</option>`).join('')}</select></label>
+<label>Almoxarife responsável<input id=al value="${esc(user())}"></label><label>Data e hora<input value="Automática ao salvar" disabled></label><label>Nº da O.S.<input value="Pendente" disabled></label></div>
+<h3>Peças</h3><div id=its>${it()}</div><button class=b2 id=add>+ Adicionar peça</button><label style="margin-top:12px">Observações<textarea id=ob rows=2></textarea></label><div class=row><button class="b big" id=sv>Registrar retirada</button></div></div>`;
+$('#add').onclick=()=>$('#its').insertAdjacentHTML('beforeend',it());
+$('#sv').onclick=()=>go(async()=>{const al=$('#al').value.trim();localStorage.setItem('usr',al);
+const itens=[...document.querySelectorAll('.item')].map(e=>({codigo:e.querySelector('.cd').value,descricao:e.querySelector('.ds').value,qtd:e.querySelector('.qt').value})).filter(i=>i.codigo||i.descricao);
+await api('/api/retiradas',{mecanico_id:$('#mc').value,almoxarife:al,token:tk,obs:$('#ob').value,itens});toast('Retirada registrada como PENDENTE');V.nova()})},
+async pend(){m.innerHTML=`<h2>Pendências</h2><div class=box><div class=grid><input id=q placeholder="Busca rápida: mecânico, código ou peça"><select id=mc></select><select id=st><option value=ABERTAS>Pendentes e em cobrança</option><option value="">Todos</option><option>PENDENTE</option><option>EM COBRANÇA</option><option>REGULARIZADA</option><option>CANCELADA</option></select>
+<input id=de type=date title="De"><input id=ate type=date title="Até"><select id=mh><option value="">Qualquer tempo</option><option value=24>+ de 24 h</option><option value=48>+ de 48 h</option><option value=72>+ de 72 h</option></select></div><div id=tb></div></div>`;
+const mc=await api('/api/mecanicos');$('#mc').innerHTML='<option value="">Todos os mecânicos</option>'+mc.map(x=>`<option value=${x.id}>${esc(x.nome)}</option>`).join('');
+let t;const ld=()=>go(async()=>{const p=new URLSearchParams({q:$('#q').value,mecanico:$('#mc').value,status:$('#st').value,de:$('#de').value,ate:$('#ate').value,min_horas:$('#mh').value});
+$('#tb').innerHTML=tabela(await api('/api/retiradas?'+p),true)});window.go_=ld;m.oninput=m.onchange=()=>{clearTimeout(t);t=setTimeout(ld,200)};ld()},
+async cob(){const l=await api('/api/cobrancas');m.innerHTML=`<h2>Cobranças Pendentes</h2>`+(l.map(x=>`<div class=box><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between"><div><h3 style="margin:0">${esc(x.nome)}</h3>
+<small>${x.retiradas} retirada(s) • ${x.pecas} peça(s) • mais antiga: ${dt(x.mais_antiga)} (<span class="dot ${cor(x.horas)}"></span>${fh(x.horas)})</small></div><div><button class="b2 sm" onclick="detalhe(${x.id})">Detalhes</button> <button class=b onclick="cobrar(${x.id})">Registrar cobrança</button></div></div>
+<p style="margin:10px 0 0"><b>Histórico de cobranças:</b></p>${x.cobrancas.map(c=>`<div>${dt(c.em)} – ${esc(c.por)}: ${esc(c.obs)}</div>`).join('')||'<div>Nenhuma cobrança ainda.</div>'}</div>`).join('')||'<div class=box>Nenhum mecânico com pendências. 🎉</div>');window.go_=V.cob},
+async mec(){const l=await api('/api/mecanicos');m.innerHTML=`<h2>Mecânicos</h2><div class=box><div class=grid><label>Nome<input id=n></label><label>Matrícula<input id=mt></label></div><button class=b id=sv>Cadastrar mecânico</button></div>
+<div class=box><table><tr><th>Nome</th><th>Matrícula</th><th>Pendências abertas</th><th></th></tr>${l.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.matricula)}</td><td>${x.abertas}</td><td><button class="b2 sm" onclick="detalhe(${x.id})">Detalhes</button></td></tr>`).join('')}</table></div>`;
+$('#sv').onclick=()=>go(async()=>{await api('/api/mecanicos',{nome:$('#n').value,matricula:$('#mt').value,por:user()});toast('Mecânico cadastrado');V.mec()})},
+async rel(){m.innerHTML=`<h2>Relatórios</h2><div class=box><div class=grid><label>De<input id=de type=date></label><label>Até<input id=ate type=date></label></div><div id=rs></div></div>`;
+const ld=()=>go(async()=>{const q=new URLSearchParams({de:$('#de').value,ate:$('#ate').value}),r=await api('/api/relatorio?'+q);
+$('#rs').innerHTML=`<div class=cards><div class=card><small>Retiradas no período</small><b>${r.total}</b></div><div class=card><small>Pendentes</small><b>${r.abertas}</b></div><div class=card><small>Regularizadas</small><b>${r.regularizadas}</b></div><div class=card><small>Tempo médio p/ regularizar</small><b>${r.tempo_medio_h==null?'—':fh(r.tempo_medio_h)}</b></div></div>
+<h3>Pendências por mecânico</h3><table><tr><th>Mecânico</th><th>Retiradas</th><th>Peças</th></tr>${r.por_mecanico.map(x=>`<tr><td>${esc(x.mecanico)}</td><td>${x.retiradas}</td><td>${x.pecas}</td></tr>`).join('')}</table>
+<h3>Exportar CSV (Excel)</h3>${[['pendencias','Pendências'],['pecas','Peças sem O.S.'],['regularizadas','Regularizadas'],['cobrancas','Histórico de cobranças']].map(t=>`<button class="b sm" onclick="baixar('${t[0]}','${q}')">${t[1]}</button>`).join('')}
+<p><button class=b2 onclick="print()">Imprimir / salvar em PDF</button></p>`});m.onchange=ld;ld()},
+async cfg(){m.innerHTML=`<h2>Configurações</h2><div class=box><label>Meu nome (usado nos registros)<input id=u value="${esc(user())}"></label><div class=row><button class=b id=sv>Salvar</button></div></div>
+<div class=box><h3>Backup dos dados</h3><p>Os registros ficam <b>somente neste aparelho</b>. Faça backup com frequência e guarde o arquivo em local seguro (e-mail, nuvem, computador).</p><p><small>Último backup: ${S.bk?dt(S.bk):'nunca'}</small></p>
+<button class=b id=ex>Exportar backup</button> <button class=b2 id=im>Restaurar backup…</button><input type=file id=fi accept=".json" hidden><p><small>Restaurar substitui todos os dados deste aparelho pelos do arquivo.</small></p></div>`;
+$('#sv').onclick=()=>{localStorage.setItem('usr',$('#u').value);toast('Salvo')};$('#ex').onclick=()=>go(async()=>{await exportar();toast('Backup exportado');V.cfg()});$('#im').onclick=()=>$('#fi').click();
+$('#fi').onchange=e=>go(async()=>{const f=e.target.files[0];if(!f||!confirm('Substituir TODOS os dados deste aparelho pelo backup selecionado?'))return;restaurar(JSON.parse(await f.text()));await save();toast('Backup restaurado');V.cfg()})}};
+function nav(){const v=(location.hash||'#dash').slice(1);window.go_=()=>V[v]();document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('on',a.dataset.v==v));go(()=>V[v]())}
+document.querySelectorAll('nav a').forEach(a=>a.onclick=()=>{location.hash=a.dataset.v});addEventListener('hashchange',nav);load().then(nav);if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script></body></html>
